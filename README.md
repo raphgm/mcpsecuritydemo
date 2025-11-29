@@ -2,7 +2,7 @@
 
 # 🛡️ MCP Secure Greeter — Demo Project
 
-A simple, security-focused demo showing how to build and run a **Modular Command Protocol (MCP)** server and interact with it using the built-in MCP client.
+A simple, security-focused demo showing how to build and run a **Model Context Protocol (MCP)** server and interact with it using the built-in MCP client.
 This demo is designed for workshops, training sessions, and developer onboarding.
 
 ---
