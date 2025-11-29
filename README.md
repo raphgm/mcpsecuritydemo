@@ -1,149 +1,197 @@
-# 🔐 MCP Security Demo
+🛡️ MCP Secure Greeter — Demo Project
 
-A hands-on demonstration of building secure Model Context Protocol (MCP) tools using FastMCP, showcasing input validation, least privilege principles, and safe inter-process communication.
+A simple, security-focused demo showing how to build and run a Modular Command Protocol (MCP) server and interact with it using the built-in MCP client.
+This demo is designed for workshops, training sessions, and developer onboarding.
 
-## 🎯 Goal
+📌 What This Demo Teaches
 
-Build a secure MCP tool that:
-- ✅ Validates user input
-- ✅ Exposes only necessary functionality (least privilege)
-- ✅ Uses safe inter-process communication
-- ✅ Demonstrates structured output
+This project demonstrates secure tool invocation using MCP:
 
-## 📋 Prerequisites
+✔️ What participants learn
 
-- Python 3.8 or higher
-- pip (Python package installer)
+How MCP servers work
 
-## 🚀 Setup Instructions
+How to validate user input safely
 
-### Step 1 — Set up your project and virtual environment
+How to run a server with STDIO transport
 
-A virtual environment isolates dependencies for this demo, preventing conflicts with other Python packages.
+How to use the built-in MCP client to call tools
 
-```bash
+How “secure-by-default” validation prevents abuse
+
+✔️ Why MCP Security Matters
+
+MCP lets developers expose tools to LLMs safely.
+But AI models can be tricked into sending malicious inputs, so tools must:
+
+Validate every input
+
+Reject suspicious patterns
+
+Only return safe content
+
+This demo shows the difference between safe and unsafe input.
+
+⚙️ Project Structure
+mcpdemo/
+│
+├── server.py       # MCP server with input validation
+├── client.py       # Python MCP client calling the server
+├── requirements.txt
+└── README.md
+
+🚀 Step-by-Step Setup Guide
+1️⃣ Create the project folder
 mkdir mcpdemo
 cd mcpdemo
-python3 -m venv venv        # create isolated Python environment
-source venv/bin/activate    # activate it
-```
 
-You should now see `(venv)` in your terminal prompt.
+2️⃣ Create a Python virtual environment (Mac)
 
-### Step 2 — Install FastMCP
+Why?
+A venv keeps dependencies isolated so the global system is not affected.
 
-FastMCP is the framework we'll use to create MCP servers and clients. It handles tool registration, secure execution, and communication.
+python3 -m venv venv
+source venv/bin/activate
 
-```bash
-python3 -m pip install --upgrade pip
-python3 -m pip install fastmcp
-```
+3️⃣ Create requirements.txt
 
-Verify installation:
+Why?
+So the environment can install the exact packages the server and client need.
 
-```bash
-python3 -m pip show fastmcp
-```
+touch requirements.txt
 
-## 📁 Project Structure
 
-```
-mcpdemo/
-├── server.py      # MCP server with secure tool implementation
-├── client.py      # MCP client demonstrating tool calls
-├── venv/          # Virtual environment (not tracked in git)
-└── README.md      # This file
-```
+Add this inside:
 
-## 🔧 Implementation
+fastmcp==2.13.1
 
-### Server (`server.py`)
 
-The server hosts your MCP tools. This is where security enforcement happens: validating input, limiting exposed functionality, and controlling output.
+Install everything:
 
-**Security Highlights:**
-- ✅ Input is validated using regex whitelisting
-- ✅ Only the `greet` tool is exposed (least privilege)
-- ✅ Minimal dependencies (fastmcp only)
-- ✅ STDIO transport ensures the server runs safely as a subprocess
+pip install -r requirements.txt
 
-```python
-from fastmcp import FastMCP
-import re
+4️⃣ Create the MCP Secure Greeter Server (server.py)
 
-mcp = FastMCP("safe-greeter")
+Why?
+This file exposes an MCP tool called greet, validates names, and demonstrates safe error handling.
 
-@mcp.tool
-def greet(name: str) -> dict:
-    """
-    A simple greeting tool.
-    Input is validated to allow only letters and spaces.
-    """
-    # SECURITY: Input validation prevents malicious input
-    if not re.fullmatch(r"[A-Za-z ]{1,30}", name):
+from fastmcp import FastMCP, tool
+
+app = FastMCP("safe-greeter")
+
+def is_valid_name(name: str) -> bool:
+    return name.replace(" ", "").isalpha()
+
+@tool
+def greet(name: str):
+    if not is_valid_name(name):
         return {"error": "Invalid name — only letters and spaces allowed."}
     return {"message": f"Hello, {name}!"}
 
 if __name__ == "__main__":
-    mcp.run()
-```
+    app.run()
 
-### Client (`client.py`)
+🔐 Why this matters
 
-The client demonstrates how to interact with MCP servers securely, calling tools and handling structured results.
+The is_valid_name() filter prevents:
 
-**How this enforces security:**
-- ✅ The client cannot bypass input validation
-- ✅ The server responds with structured content (CallToolResult) for predictable handling
-- ✅ Only tools defined on the server are callable
+code injection
 
-## ▶️ Running the Demo
+prompt injection
 
-Activate your virtual environment and run the client:
+script tags
 
-```bash
-source venv/bin/activate    # activate venv if not already
-python3 client.py           # runs client, which auto-starts server via STDIO
-```
+SQL-like payloads
 
-### Expected Output
+shell commands
 
-```
-Valid input: CallToolResult(... {'message': 'Hello, Raphael!'} ...)
-Bad input: CallToolResult(... {'error': 'Invalid name — only letters and spaces allowed.'} ...)
-```
+This demonstrates MCP’s input-level security.
 
-**Explanation:**
-- ✅ **Valid input** → server accepted the input and returned a greeting
-- ❌ **Bad input** → server rejected malicious input, demonstrating security in action
+5️⃣ Create the MCP Client (client.py)
 
-## 🔒 Security Concepts Demonstrated
+Why?
+To simulate how an AI model or external program would call your MCP server.
 
-| Concept | How Demonstrated |
-|---------|------------------|
-| **Input validation** | Regex whitelisting in `greet` tool |
-| **Least privilege** | Only `greet` tool exposed |
-| **Safe communication** | STDIO transport, subprocess isolation |
-| **Predictable outputs** | Structured `CallToolResult` objects |
-| **Minimal dependencies** | Only `fastmcp` required |
+import asyncio
+from fastmcp.client import Client
 
-## 🎓 Key Takeaways
+async def main():
+    async with Client(
+        transport="python3 server.py"
+    ) as client:
+        resp = await client.call_tool("greet", {"name": "Raphael"})
+        print("Valid input:", resp)
 
-1. **Always validate input** — Never trust user input; use whitelisting when possible
-2. **Expose minimal functionality** — Only provide the tools necessary for the task
-3. **Use structured outputs** — Predictable response formats make error handling easier
-4. **Leverage framework security** — FastMCP handles secure communication automatically
-5. **Isolate execution** — STDIO transport runs the server as a separate, controlled subprocess
+        resp = await client.call_tool("greet", {"name": "Raphael123!!"})
+        print("Bad input:", resp)
 
-## 📚 Learn More
+asyncio.run(main())
 
-- [FastMCP Documentation](https://github.com/jlowin/fastmcp)
-- [Model Context Protocol Specification](https://modelcontextprotocol.io)
+▶️ 6️⃣ Run the demo
+Start the client (which auto-starts the server)
+python3 client.py
 
-## 📝 License
+Expected Output
+Valid input: {"message": "Hello, Raphael!"}
 
-This is a demo project for educational purposes.
+Bad input: {"error": "Invalid name — only letters and spaces allowed."}
 
----
 
-**Built with ❤️ using FastMCP**
+You will also see FastMCP start up:
+
+FastMCP 2.13.1
+Server: safe-greeter
+Transport: STDIO
+
+🧠 What Makes This a Good Security Demo?
+🔒 1. Input validation is clear
+
+The demo visually shows:
+
+Good input → Accepted
+
+Bad input → Rejected
+
+Perfect for live explanation.
+
+🧪 2. Easy to modify
+
+Participants can try breaking it with:
+
+"Robert'); DROP TABLE Students;--"
+
+"<script>alert(1)</script>"
+
+"$(rm -rf ~)"
+
+All will be safely rejected.
+
+🚀 3. Demonstrates real-world MCP usage
+
+This is exactly how MCP tools are integrated into:
+
+AI agents
+
+ChatGPT custom tools
+
+Automated systems
+
+Secure pipelines
+
+📚 Additional Learning Ideas
+
+You can extend this demo with:
+
+Logging middleware
+
+Rate limiting
+
+Role-based access
+
+Token-based authorization
+
+More validated tools (e.g., email validator, file-safe analyzer)
+
+🙌 Credits
+
+Created for MCP Security Workshops by Raphael Gab-Momoh.
